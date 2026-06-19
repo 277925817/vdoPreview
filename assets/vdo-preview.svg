@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-label="VDO preview">
+  <rect width="256" height="256" rx="56" fill="#f6f4ee"/>
+  <circle cx="128" cy="128" r="86" fill="#116149"/>
+  <circle cx="128" cy="128" r="64" fill="#ffffff"/>
+  <path d="M105 92l66 36-66 36z" fill="#0b4b39"/>
+  <circle cx="190" cy="66" r="19" fill="#d08a1e"/>
+</svg>

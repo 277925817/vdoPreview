@@ -1,0 +1,17 @@
+{
+  "name": "vdo-ninja-circle-preview",
+  "version": "0.1.0",
+  "description": "Clickable desktop circle preview window for VDO.Ninja.",
+  "main": "src/main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "check": "node --check src/*.js && node --check test/*.test.js",
+    "smoke": "./start-vdo-preview.sh --smoke-open-preview",
+    "smoke:click": "./start-vdo-preview.sh --smoke-click-open",
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "electron": "^42.4.1"
+  }
+}

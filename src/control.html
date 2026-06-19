@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'">
+    <title>VDO.Ninja 圆形预览</title>
+    <link rel="stylesheet" href="./control.css">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="header">
+        <div>
+          <p class="eyebrow">VDO.Ninja</p>
+          <h1>圆形预览</h1>
+        </div>
+        <div class="status-dot" aria-hidden="true"></div>
+      </header>
+
+      <form id="settings-form" class="settings">
+        <label class="field">
+          <span>链接或 ID</span>
+          <input id="input" name="input" type="text" autocomplete="off" spellcheck="false" placeholder="preview 或 https://vdo.ninja/?push=preview">
+        </label>
+
+        <fieldset class="field">
+          <legend>模式</legend>
+          <div class="segmented">
+            <label>
+              <input type="radio" name="mode" value="push">
+              <span>摄像头</span>
+            </label>
+            <label>
+              <input type="radio" name="mode" value="view">
+              <span>观看</span>
+            </label>
+          </div>
+        </fieldset>
+
+        <div class="field">
+          <div class="field-row">
+            <label for="size-range">尺寸</label>
+            <output id="size-output" for="size-range size-number">360 px</output>
+          </div>
+          <input id="size-range" name="sizeRange" type="range" min="160" max="960" step="20">
+          <input id="size-number" name="size" type="number" min="160" max="960" step="20" inputmode="numeric">
+        </div>
+
+        <div class="toggles">
+          <label>
+            <input id="always-on-top" name="alwaysOnTop" type="checkbox">
+            <span>置顶</span>
+          </label>
+          <label>
+            <input id="click-through" name="clickThrough" type="checkbox">
+            <span>穿透</span>
+          </label>
+          <label>
+            <input id="autostart" name="autostart" type="checkbox">
+            <span>自启摄像头</span>
+          </label>
+        </div>
+
+        <div class="actions">
+          <button id="open-preview" class="primary" type="submit">打开预览</button>
+          <button id="reload-preview" type="button">刷新</button>
+          <button id="close-preview" type="button">关闭</button>
+        </div>
+
+        <p id="status" class="status" role="status">就绪</p>
+      </form>
+    </main>
+
+    <script src="./control.js"></script>
+  </body>
+</html>

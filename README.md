@@ -1,0 +1,30 @@
+# VDO.Ninja Circle Preview
+
+一个可点击启动的 VDO.Ninja 桌面圆形预览工具。
+
+## 功能
+
+- 透明无边框圆形预览窗口
+- 默认启动本机摄像头：`push=preview&webcam&autostart`
+- 支持输入 VDO.Ninja stream ID 或完整链接
+- 支持观看远端流、置顶、点击穿透和尺寸调整
+- Linux 桌面快捷方式安装脚本
+
+## 使用
+
+```bash
+npm install
+./install-desktop-entry.sh
+./start-vdo-preview.sh
+```
+
+桌面入口会安装到 `~/Desktop/VDO Ninja 圆形预览.desktop`。
+
+## 验证
+
+```bash
+npm test
+npm run check
+npm run smoke
+npm run smoke:click
+```
