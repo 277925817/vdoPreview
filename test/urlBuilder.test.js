@@ -237,7 +237,18 @@ test("viewer mode ignores missing local camera devices", () => {
   );
 
   assert.deepEqual(
-    describePreviewSnapshot({ devices: { videoInputs: 0 } }, 12000, null, {
+    describePreviewSnapshot({ devices: { videoInputs: 0 } }, 20000, null, {
+      expectsLocalCamera: false
+    }),
+    {
+      mediaStatus: "loading",
+      level: "info",
+      message: "观看页面已打开，正在等待远端视频..."
+    }
+  );
+
+  assert.deepEqual(
+    describePreviewSnapshot({ devices: { videoInputs: 0 } }, 31000, null, {
       expectsLocalCamera: false
     }),
     {

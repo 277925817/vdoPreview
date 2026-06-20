@@ -1,4 +1,5 @@
 const MEDIA_READY_TIMEOUT_MS = 10000;
+const REMOTE_MEDIA_READY_TIMEOUT_MS = 30000;
 const DEVICE_CHECK_DELAY_MS = 3000;
 
 function normalizeText(value) {
@@ -116,7 +117,8 @@ function describePreviewSnapshot(snapshot = {}, elapsedMs = 0, consoleIssue = nu
     };
   }
 
-  if (elapsedMs >= MEDIA_READY_TIMEOUT_MS) {
+  const timeoutMs = expectsLocalCamera ? MEDIA_READY_TIMEOUT_MS : REMOTE_MEDIA_READY_TIMEOUT_MS;
+  if (elapsedMs >= timeoutMs) {
     return {
       mediaStatus: "warning",
       level: "warning",
