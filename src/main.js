@@ -11,6 +11,9 @@ const { describePreviewSnapshot, mapPreviewIssue } = require("./mediaStatus");
 const { applyCircleShape } = require("./windowShape");
 
 app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
+app.commandLine.appendSwitch("disable-background-timer-throttling");
+app.commandLine.appendSwitch("disable-renderer-backgrounding");
+app.commandLine.appendSwitch("disable-backgrounding-occluded-windows");
 
 let controlWindow = null;
 let previewWindow = null;
@@ -251,6 +254,19 @@ function wait(ms) {
   });
 }
 
+function usesNativePreviewShape() {
+  return process.platform === "linux" || process.platform === "win32";
+}
+
+function getPreviewVisualOptions() {
+  const usesNativeShape = usesNativePreviewShape();
+
+  return {
+    transparent: !usesNativeShape,
+    backgroundColor: usesNativeShape ? "#000000" : "#00000000"
+  };
+}
+
 async function stopPreviewMedia(window) {
   if (!window || window.isDestroyed()) {
     return;
@@ -403,6 +419,7 @@ function applyPreviewWindowOptions(window, config) {
 async function openPreview(configInput) {
   const config = writeConfig(normalizeConfig(configInput), app);
   const url = buildPreviewUrl(config);
+  const visualOptions = getPreviewVisualOptions();
 
   if (previewWindow && !previewWindow.isDestroyed()) {
     applyPreviewWindowOptions(previewWindow, config);
@@ -416,10 +433,10 @@ async function openPreview(configInput) {
     height: config.size,
     show: false,
     frame: false,
-    transparent: true,
+    transparent: visualOptions.transparent,
     resizable: false,
     hasShadow: false,
-    backgroundColor: "#00000000",
+    backgroundColor: visualOptions.backgroundColor,
     title: "VDO.Ninja 圆形预览",
     webPreferences: {
       contextIsolation: true,

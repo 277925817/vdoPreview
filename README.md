@@ -10,6 +10,7 @@
 - 本机无摄像头时，`push=` 链接会自动尝试切换为同 ID 的 `view=` 观看链接
 - 支持输入 VDO.Ninja stream ID 或完整链接
 - 支持观看远端流、置顶、点击穿透和尺寸调整
+- 观看模式默认加 `scale=100&videobitrate=6000&buffer=200`，避免小圆窗触发低清缩放并缓解网络抖动
 - Linux 桌面快捷方式安装脚本
 
 ## 使用
@@ -29,4 +30,5 @@ npm test
 npm run check
 npm run smoke
 npm run smoke:click
+npm run smoke:close
 ```

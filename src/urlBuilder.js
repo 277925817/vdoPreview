@@ -122,6 +122,26 @@ function hasSenderAudioDevice(url) {
   );
 }
 
+function hasViewerScale(url) {
+  return (
+    url.searchParams.has("scale") ||
+    url.searchParams.has("viewwidth") ||
+    url.searchParams.has("viewheight")
+  );
+}
+
+function hasViewerVideoBitrate(url) {
+  return (
+    url.searchParams.has("videobitrate") ||
+    url.searchParams.has("bitrate") ||
+    url.searchParams.has("vb")
+  );
+}
+
+function hasViewerBuffer(url) {
+  return url.searchParams.has("buffer") || url.searchParams.has("buffer2");
+}
+
 function deleteSenderOnlyParams(url) {
   [
     "push",
@@ -144,6 +164,20 @@ function addFlag(url, name) {
   }
 }
 
+function addDefaultViewerQualityParams(url) {
+  if (!hasViewerScale(url)) {
+    url.searchParams.set("scale", "100");
+  }
+
+  if (!hasViewerVideoBitrate(url)) {
+    url.searchParams.set("videobitrate", "6000");
+  }
+
+  if (!hasViewerBuffer(url)) {
+    url.searchParams.set("buffer", "200");
+  }
+}
+
 function addDefaultPreviewParams(url, options = {}) {
   const isPush = hasMediaPush(url) || options.mode === "push";
 
@@ -161,6 +195,7 @@ function addDefaultPreviewParams(url, options = {}) {
     }
   } else {
     addFlag(url, "cleanviewer");
+    addDefaultViewerQualityParams(url);
   }
 
   addFlag(url, "transparent");

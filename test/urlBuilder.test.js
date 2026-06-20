@@ -20,6 +20,9 @@ test("builds a clean circular viewer URL from a stream id", () => {
   assert.equal(url.origin, "https://vdo.ninja");
   assert.equal(url.searchParams.get("view"), "guest-1");
   assert.equal(url.searchParams.get("cleanviewer"), "1");
+  assert.equal(url.searchParams.get("scale"), "100");
+  assert.equal(url.searchParams.get("videobitrate"), "6000");
+  assert.equal(url.searchParams.get("buffer"), "200");
   assert.equal(url.searchParams.get("transparent"), "1");
   assert.equal(url.searchParams.get("cover"), "1");
   assert.equal(url.searchParams.get("rounded"), "1000");
@@ -74,6 +77,9 @@ test("converts a pasted push URL when viewing", () => {
   assert.equal(url.searchParams.get("audiodevice"), null);
   assert.equal(url.searchParams.get("view"), "camera-1");
   assert.equal(url.searchParams.get("cleanviewer"), "1");
+  assert.equal(url.searchParams.get("scale"), "100");
+  assert.equal(url.searchParams.get("videobitrate"), "6000");
+  assert.equal(url.searchParams.get("buffer"), "200");
 });
 
 test("builds a viewer fallback for push URLs", () => {
@@ -88,6 +94,35 @@ test("builds a viewer fallback for push URLs", () => {
   assert.equal(url.searchParams.get("cleanoutput"), null);
   assert.equal(url.searchParams.get("cleanviewer"), "1");
   assert.equal(expectsLocalCamera(url.toString()), false);
+});
+
+test("keeps explicit viewer quality parameters", () => {
+  const url = new URL(
+    buildPreviewUrl({
+      input: "https://vdo.ninja/?view=abc&scale=65&videobitrate=2500&buffer=0",
+      mode: "view"
+    })
+  );
+
+  assert.equal(url.searchParams.get("scale"), "65");
+  assert.equal(url.searchParams.get("videobitrate"), "2500");
+  assert.equal(url.searchParams.get("buffer"), "0");
+});
+
+test("keeps explicit viewer quality aliases without adding duplicates", () => {
+  const url = new URL(
+    buildPreviewUrl({
+      input: "https://vdo.ninja/?view=abc&viewwidth=1280&vb=3500&buffer2=300",
+      mode: "view"
+    })
+  );
+
+  assert.equal(url.searchParams.get("viewwidth"), "1280");
+  assert.equal(url.searchParams.get("vb"), "3500");
+  assert.equal(url.searchParams.get("buffer2"), "300");
+  assert.equal(url.searchParams.get("scale"), null);
+  assert.equal(url.searchParams.get("videobitrate"), null);
+  assert.equal(url.searchParams.get("buffer"), null);
 });
 
 test("preserves existing VDO.Ninja URL parameters", () => {
