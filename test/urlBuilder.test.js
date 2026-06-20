@@ -21,7 +21,9 @@ test("builds a clean circular viewer URL from a stream id", () => {
   assert.equal(url.searchParams.get("view"), "guest-1");
   assert.equal(url.searchParams.get("cleanviewer"), "1");
   assert.equal(url.searchParams.get("scale"), "100");
-  assert.equal(url.searchParams.get("videobitrate"), "6000");
+  assert.equal(url.searchParams.get("viewwidth"), "1920");
+  assert.equal(url.searchParams.get("viewheight"), "1920");
+  assert.equal(url.searchParams.get("videobitrate"), "12000");
   assert.equal(url.searchParams.get("buffer"), "200");
   assert.equal(url.searchParams.get("transparent"), "1");
   assert.equal(url.searchParams.get("cover"), "1");
@@ -78,7 +80,9 @@ test("converts a pasted push URL when viewing", () => {
   assert.equal(url.searchParams.get("view"), "camera-1");
   assert.equal(url.searchParams.get("cleanviewer"), "1");
   assert.equal(url.searchParams.get("scale"), "100");
-  assert.equal(url.searchParams.get("videobitrate"), "6000");
+  assert.equal(url.searchParams.get("viewwidth"), "1920");
+  assert.equal(url.searchParams.get("viewheight"), "1920");
+  assert.equal(url.searchParams.get("videobitrate"), "12000");
   assert.equal(url.searchParams.get("buffer"), "200");
 });
 
@@ -105,6 +109,8 @@ test("keeps explicit viewer quality parameters", () => {
   );
 
   assert.equal(url.searchParams.get("scale"), "65");
+  assert.equal(url.searchParams.get("viewwidth"), null);
+  assert.equal(url.searchParams.get("viewheight"), null);
   assert.equal(url.searchParams.get("videobitrate"), "2500");
   assert.equal(url.searchParams.get("buffer"), "0");
 });
@@ -112,15 +118,18 @@ test("keeps explicit viewer quality parameters", () => {
 test("keeps explicit viewer quality aliases without adding duplicates", () => {
   const url = new URL(
     buildPreviewUrl({
-      input: "https://vdo.ninja/?view=abc&viewwidth=1280&vb=3500&buffer2=300",
+      input: "https://vdo.ninja/?view=abc&vw=1280&vh=720&vb=3500&buffer2=300",
       mode: "view"
     })
   );
 
-  assert.equal(url.searchParams.get("viewwidth"), "1280");
+  assert.equal(url.searchParams.get("vw"), "1280");
+  assert.equal(url.searchParams.get("vh"), "720");
   assert.equal(url.searchParams.get("vb"), "3500");
   assert.equal(url.searchParams.get("buffer2"), "300");
   assert.equal(url.searchParams.get("scale"), null);
+  assert.equal(url.searchParams.get("viewwidth"), null);
+  assert.equal(url.searchParams.get("viewheight"), null);
   assert.equal(url.searchParams.get("videobitrate"), null);
   assert.equal(url.searchParams.get("buffer"), null);
 });
@@ -240,7 +249,7 @@ test("detects a playable preview video snapshot", () => {
     {
       mediaStatus: "playing",
       level: "ok",
-      message: "已检测到视频流"
+      message: "已检测到视频流（1280x720）"
     }
   );
 });

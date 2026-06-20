@@ -535,6 +535,15 @@ function waitForPreviewWindow(timeoutMs = 15000) {
 }
 
 function waitForControlStatus(window, statuses, timeoutMs = 20000) {
+  const matchesStatus = (status) =>
+    statuses.some((expectedStatus) => {
+      if (status === expectedStatus) {
+        return true;
+      }
+
+      return expectedStatus === "已检测到视频流" && status.startsWith(expectedStatus);
+    });
+
   return new Promise((resolve, reject) => {
     const startedAt = Date.now();
     const timer = setInterval(async () => {
@@ -543,7 +552,7 @@ function waitForControlStatus(window, statuses, timeoutMs = 20000) {
           document.querySelector("#status").textContent
         `);
 
-        if (statuses.includes(status)) {
+        if (matchesStatus(status)) {
           clearInterval(timer);
           resolve(status);
           return;

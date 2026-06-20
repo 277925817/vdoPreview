@@ -53,9 +53,9 @@ function mapPreviewIssue(value) {
   return null;
 }
 
-function hasPlayableVideo(snapshot = {}) {
+function findPlayableVideo(snapshot = {}) {
   const videos = Array.isArray(snapshot.videos) ? snapshot.videos : [];
-  return videos.some((video) => {
+  return videos.find((video) => {
     const hasFrame = Number(video.width) > 0 && Number(video.height) > 0;
     const isReady = Number(video.readyState) >= 2;
     const hasLiveTrack = Array.isArray(video.tracks)
@@ -64,6 +64,21 @@ function hasPlayableVideo(snapshot = {}) {
 
     return hasFrame && isReady && !video.ended && (hasLiveTrack || !video.srcObjectActive);
   });
+}
+
+function hasPlayableVideo(snapshot = {}) {
+  return Boolean(findPlayableVideo(snapshot));
+}
+
+function describePlayableVideo(video) {
+  const width = Math.round(Number(video && video.width) || 0);
+  const height = Math.round(Number(video && video.height) || 0);
+
+  if (width > 0 && height > 0) {
+    return `已检测到视频流（${width}x${height}）`;
+  }
+
+  return "已检测到视频流";
 }
 
 function firstMappedIssue(snapshot = {}, consoleIssue) {
@@ -78,11 +93,12 @@ function firstMappedIssue(snapshot = {}, consoleIssue) {
 function describePreviewSnapshot(snapshot = {}, elapsedMs = 0, consoleIssue = null, options = {}) {
   const expectsLocalCamera = options.expectsLocalCamera !== false;
 
-  if (hasPlayableVideo(snapshot)) {
+  const playableVideo = findPlayableVideo(snapshot);
+  if (playableVideo) {
     return {
       mediaStatus: "playing",
       level: "ok",
-      message: "已检测到视频流"
+      message: describePlayableVideo(playableVideo)
     };
   }
 

@@ -11,7 +11,7 @@
 - 支持输入 VDO.Ninja stream ID 或完整链接
 - 支持观看远端流、置顶、点击穿透和尺寸调整
 - 预览媒体层默认左右翻转，修正手机前置摄像头镜像画面
-- 观看模式默认加 `scale=100&videobitrate=6000&buffer=200`，避免小圆窗触发低清缩放并缓解网络抖动
+- 观看模式默认加 `scale=100&viewwidth=1920&viewheight=1920&videobitrate=12000&buffer=200`，避免小圆窗触发低清缩放并缓解网络抖动
 - Linux 桌面快捷方式安装脚本
 
 ## 使用

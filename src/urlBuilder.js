@@ -128,12 +128,19 @@ function hasSenderAudioDevice(url) {
   );
 }
 
-function hasViewerScale(url) {
-  return (
-    url.searchParams.has("scale") ||
-    url.searchParams.has("viewwidth") ||
-    url.searchParams.has("viewheight")
-  );
+function hasViewerResolutionControl(url) {
+  const resolutionParams = [
+    "scale",
+    "viewwidth",
+    "vw",
+    "viewheight",
+    "vh",
+    "dpi",
+    "sharper",
+    "sharpen"
+  ];
+
+  return resolutionParams.some((name) => url.searchParams.has(name));
 }
 
 function hasViewerVideoBitrate(url) {
@@ -170,13 +177,19 @@ function addFlag(url, name) {
   }
 }
 
-function addDefaultViewerQualityParams(url) {
-  if (!hasViewerScale(url)) {
+function addDefaultViewerResolutionParams(url) {
+  if (!hasViewerResolutionControl(url)) {
     url.searchParams.set("scale", "100");
+    url.searchParams.set("viewwidth", "1920");
+    url.searchParams.set("viewheight", "1920");
   }
+}
+
+function addDefaultViewerQualityParams(url) {
+  addDefaultViewerResolutionParams(url);
 
   if (!hasViewerVideoBitrate(url)) {
-    url.searchParams.set("videobitrate", "6000");
+    url.searchParams.set("videobitrate", "12000");
   }
 
   if (!hasViewerBuffer(url)) {
