@@ -17,6 +17,7 @@ let previewWindow = null;
 let previewProbeTimer = null;
 let previewProbeRunId = 0;
 let lastPreviewIssue = null;
+let isClosingPreview = false;
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 
 if (!hasSingleInstanceLock) {
@@ -83,6 +84,16 @@ function createControlWindow() {
 function configurePreviewWindow(window) {
   window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
 
+  window.on("system-context-menu", (event) => {
+    event.preventDefault();
+    showPreviewContextMenu(window);
+  });
+
+  window.webContents.on("context-menu", (event) => {
+    event.preventDefault();
+    showPreviewContextMenu(window);
+  });
+
   window.webContents.on("console-message", (details) => {
     const consoleMessage = details && typeof details === "object" ? details.message : "";
     const issue = mapPreviewIssue(consoleMessage);
@@ -121,7 +132,7 @@ function configurePreviewWindow(window) {
     const key = input.key.toLowerCase();
     if (key === "escape" || (input.control && key === "w")) {
       event.preventDefault();
-      window.close();
+      closePreviewWindow();
     }
 
     if (input.control && key === "r") {
@@ -129,6 +140,21 @@ function configurePreviewWindow(window) {
       window.reload();
     }
   });
+}
+
+function showPreviewContextMenu(window) {
+  if (!window || window.isDestroyed()) {
+    return;
+  }
+
+  Menu.buildFromTemplate([
+    {
+      label: "关闭预览",
+      click: () => {
+        closePreviewWindow();
+      }
+    }
+  ]).popup({ window });
 }
 
 function stopPreviewProbe() {
@@ -217,6 +243,74 @@ async function inspectPreviewMedia(window) {
   } catch (error) {
     return { error: error.message || String(error) };
   }
+}
+
+function wait(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+async function stopPreviewMedia(window) {
+  if (!window || window.isDestroyed()) {
+    return;
+  }
+
+  const script = `
+    (() => {
+      const stopMediaElement = (element) => {
+        try {
+          element.pause();
+        } catch (error) {}
+
+        if (element.srcObject && typeof element.srcObject.getTracks === "function") {
+          element.srcObject.getTracks().forEach((track) => {
+            try {
+              track.stop();
+            } catch (error) {}
+          });
+        }
+
+        try {
+          element.srcObject = null;
+          element.removeAttribute("src");
+          element.load();
+        } catch (error) {}
+      };
+
+      document.querySelectorAll("video, audio").forEach(stopMediaElement);
+    })()
+  `;
+
+  try {
+    await Promise.race([window.webContents.executeJavaScript(script, true), wait(500)]);
+  } catch (error) {
+  }
+}
+
+async function closePreviewWindow() {
+  const window = previewWindow;
+
+  if (!window || window.isDestroyed() || isClosingPreview) {
+    return { open: false };
+  }
+
+  isClosingPreview = true;
+  stopPreviewProbe();
+
+  try {
+    await stopPreviewMedia(window);
+    if (!window.isDestroyed()) {
+      window.webContents.stop();
+      window.destroy();
+    }
+  } finally {
+    previewWindow = null;
+    isClosingPreview = false;
+    sendPreviewState({ message: "预览已关闭" });
+  }
+
+  return { open: false };
 }
 
 function getLoadedPreviewMessage(url) {
@@ -347,6 +441,7 @@ async function openPreview(configInput) {
   previewWindow.on("closed", () => {
     stopPreviewProbe();
     previewWindow = null;
+    isClosingPreview = false;
     sendPreviewState();
   });
 
@@ -358,12 +453,7 @@ function registerIpcHandlers() {
   ipcMain.handle("config:get", () => readConfig(app));
   ipcMain.handle("config:save", (event, config) => writeConfig(config, app));
   ipcMain.handle("preview:open", (event, config) => openPreview(config));
-  ipcMain.handle("preview:close", () => {
-    if (previewWindow && !previewWindow.isDestroyed()) {
-      previewWindow.close();
-    }
-    return { open: false };
-  });
+  ipcMain.handle("preview:close", () => closePreviewWindow());
   ipcMain.handle("preview:reload", () => {
     if (previewWindow && !previewWindow.isDestroyed()) {
       stopPreviewProbe();
@@ -455,22 +545,42 @@ function waitForControlStatus(window, statuses, timeoutMs = 20000) {
 }
 
 async function runSmokeClickOpen() {
+  const originalConfig = readConfig(app);
   const window = createControlWindow();
-  await waitForControlLoad(window);
-  await window.webContents.executeJavaScript(`
-    document.querySelector("#input").value = "preview";
-    document.querySelector("#open-preview").click();
-  `);
-  await waitForPreviewWindow();
-  const status = await waitForControlStatus(window, [
-    "预览页面已打开，正在等待视频...",
-    "观看页面已打开，正在等待远端视频...",
-    "本机未检测到摄像头，已改用观看模式，正在等待远端视频...",
-    "已检测到视频流",
-    "打开失败"
-  ]);
-  console.log(`smoke-click-open ok: ${status}`);
+  try {
+    await waitForControlLoad(window);
+    await window.webContents.executeJavaScript(`
+      document.querySelector("#input").value = "preview";
+      document.querySelector("#open-preview").click();
+    `);
+    await waitForPreviewWindow();
+    const status = await waitForControlStatus(window, [
+      "预览页面已打开，正在等待视频...",
+      "观看页面已打开，正在等待远端视频...",
+      "本机未检测到摄像头，已改用观看模式，正在等待远端视频...",
+      "已检测到视频流",
+      "打开失败"
+    ]);
+    console.log(`smoke-click-open ok: ${status}`);
+  } finally {
+    writeConfig(originalConfig, app);
+  }
+
   setTimeout(() => app.quit(), 1200);
+}
+
+async function runSmokeClosePreview() {
+  const config = normalizeConfig(readConfig(app));
+  await openPreview(config);
+  await waitForPreviewWindow();
+  const result = await closePreviewWindow();
+
+  if (result.open || previewWindow) {
+    throw new Error("preview window was not closed");
+  }
+
+  console.log("smoke-close-preview ok");
+  app.quit();
 }
 
 app.whenReady().then(async () => {
@@ -500,6 +610,11 @@ app.whenReady().then(async () => {
 
   if (process.argv.includes("--smoke-click-open")) {
     await runSmokeClickOpen();
+    return;
+  }
+
+  if (process.argv.includes("--smoke-close-preview")) {
+    await runSmokeClosePreview();
     return;
   }
 

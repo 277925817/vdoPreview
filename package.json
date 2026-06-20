@@ -8,6 +8,7 @@
     "start": "electron .",
     "check": "node --check src/*.js && node --check test/*.test.js",
     "smoke": "./start-vdo-preview.sh --smoke-open-preview",
+    "smoke:close": "./start-vdo-preview.sh --smoke-close-preview",
     "smoke:click": "./start-vdo-preview.sh --smoke-click-open",
     "test": "node --test"
   },
