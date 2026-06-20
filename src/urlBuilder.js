@@ -61,6 +61,12 @@ canvas,
   position: relative !important;
   z-index: 1 !important;
 }
+
+video,
+canvas {
+  transform: scaleX(-1) !important;
+  transform-origin: center center !important;
+}
 `;
 
 function encodeVdoCss(css = CIRCLE_CSS) {

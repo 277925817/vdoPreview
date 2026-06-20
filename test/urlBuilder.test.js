@@ -209,6 +209,11 @@ test("keeps a visible circular fallback for empty streams", () => {
   assert.match(CIRCLE_CSS, /border-radius: 50%/);
 });
 
+test("horizontally flips preview media", () => {
+  assert.match(CIRCLE_CSS, /video,\s*canvas\s*\{/);
+  assert.match(CIRCLE_CSS, /transform:\s*scaleX\(-1\)/);
+});
+
 test("creates a circle-like native window shape", () => {
   const rects = createCircleShape(10, 2);
 
