@@ -151,6 +151,14 @@ function hasViewerVideoBitrate(url) {
   );
 }
 
+function hasViewerCodec(url) {
+  return (
+    url.searchParams.has("codec") ||
+    url.searchParams.has("videocodec") ||
+    url.searchParams.has("codecs")
+  );
+}
+
 function hasViewerBuffer(url) {
   return url.searchParams.has("buffer") || url.searchParams.has("buffer2");
 }
@@ -192,8 +200,12 @@ function addDefaultViewerQualityParams(url) {
     url.searchParams.set("videobitrate", "12000");
   }
 
+  if (!hasViewerCodec(url)) {
+    url.searchParams.set("codec", "h264");
+  }
+
   if (!hasViewerBuffer(url)) {
-    url.searchParams.set("buffer", "200");
+    url.searchParams.set("buffer2", "1000");
   }
 }
 

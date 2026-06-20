@@ -24,7 +24,9 @@ test("builds a clean circular viewer URL from a stream id", () => {
   assert.equal(url.searchParams.get("viewwidth"), "1920");
   assert.equal(url.searchParams.get("viewheight"), "1920");
   assert.equal(url.searchParams.get("videobitrate"), "12000");
-  assert.equal(url.searchParams.get("buffer"), "200");
+  assert.equal(url.searchParams.get("codec"), "h264");
+  assert.equal(url.searchParams.get("buffer2"), "1000");
+  assert.equal(url.searchParams.get("buffer"), null);
   assert.equal(url.searchParams.get("transparent"), "1");
   assert.equal(url.searchParams.get("cover"), "1");
   assert.equal(url.searchParams.get("rounded"), "1000");
@@ -83,7 +85,9 @@ test("converts a pasted push URL when viewing", () => {
   assert.equal(url.searchParams.get("viewwidth"), "1920");
   assert.equal(url.searchParams.get("viewheight"), "1920");
   assert.equal(url.searchParams.get("videobitrate"), "12000");
-  assert.equal(url.searchParams.get("buffer"), "200");
+  assert.equal(url.searchParams.get("codec"), "h264");
+  assert.equal(url.searchParams.get("buffer2"), "1000");
+  assert.equal(url.searchParams.get("buffer"), null);
 });
 
 test("builds a viewer fallback for push URLs", () => {
@@ -103,7 +107,7 @@ test("builds a viewer fallback for push URLs", () => {
 test("keeps explicit viewer quality parameters", () => {
   const url = new URL(
     buildPreviewUrl({
-      input: "https://vdo.ninja/?view=abc&scale=65&videobitrate=2500&buffer=0",
+      input: "https://vdo.ninja/?view=abc&scale=65&videobitrate=2500&codec=vp8&buffer=0",
       mode: "view"
     })
   );
@@ -112,7 +116,9 @@ test("keeps explicit viewer quality parameters", () => {
   assert.equal(url.searchParams.get("viewwidth"), null);
   assert.equal(url.searchParams.get("viewheight"), null);
   assert.equal(url.searchParams.get("videobitrate"), "2500");
+  assert.equal(url.searchParams.get("codec"), "vp8");
   assert.equal(url.searchParams.get("buffer"), "0");
+  assert.equal(url.searchParams.get("buffer2"), null);
 });
 
 test("keeps explicit viewer quality aliases without adding duplicates", () => {
@@ -131,7 +137,20 @@ test("keeps explicit viewer quality aliases without adding duplicates", () => {
   assert.equal(url.searchParams.get("viewwidth"), null);
   assert.equal(url.searchParams.get("viewheight"), null);
   assert.equal(url.searchParams.get("videobitrate"), null);
+  assert.equal(url.searchParams.get("codec"), "h264");
   assert.equal(url.searchParams.get("buffer"), null);
+});
+
+test("keeps explicit viewer codec aliases", () => {
+  const url = new URL(
+    buildPreviewUrl({
+      input: "https://vdo.ninja/?view=abc&videocodec=vp9",
+      mode: "view"
+    })
+  );
+
+  assert.equal(url.searchParams.get("videocodec"), "vp9");
+  assert.equal(url.searchParams.get("codec"), null);
 });
 
 test("preserves existing VDO.Ninja URL parameters", () => {
