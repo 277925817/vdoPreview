@@ -122,6 +122,22 @@ function hasSenderAudioDevice(url) {
   );
 }
 
+function deleteSenderOnlyParams(url) {
+  [
+    "push",
+    "cleanoutput",
+    "fullscreen",
+    "webcam",
+    "webcam2",
+    "screenshare",
+    "ss",
+    "autostart",
+    "audiodevice",
+    "adevice",
+    "ad"
+  ].forEach((name) => url.searchParams.delete(name));
+}
+
 function addFlag(url, name) {
   if (!url.searchParams.has(name)) {
     url.searchParams.set(name, "1");
@@ -169,6 +185,14 @@ function addDefaultPreviewParams(url, options = {}) {
 function buildPreviewUrl(options = {}) {
   const mode = options.mode === "push" ? "push" : "view";
   const url = buildBaseUrl(options.input, mode);
+
+  if (mode === "view") {
+    const viewerUrl = buildViewerFallbackUrl(url.toString());
+    if (viewerUrl) {
+      return viewerUrl;
+    }
+  }
+
   addDefaultPreviewParams(url, {
     autostart: options.autostart !== false,
     mode
@@ -176,9 +200,39 @@ function buildPreviewUrl(options = {}) {
   return url.toString();
 }
 
+function buildViewerFallbackUrl(value) {
+  const url = new URL(value);
+  assertVdoHost(url);
+
+  if (!url.searchParams.has("push") || url.searchParams.has("view")) {
+    return null;
+  }
+
+  const streamId = url.searchParams.get("push");
+  if (!streamId) {
+    return null;
+  }
+
+  deleteSenderOnlyParams(url);
+  url.searchParams.set("view", streamId);
+  addDefaultPreviewParams(url, { mode: "view", autostart: false });
+  return url.toString();
+}
+
+function expectsLocalCamera(value) {
+  try {
+    const url = new URL(value);
+    return url.searchParams.has("push") && !url.searchParams.has("view");
+  } catch (error) {
+    return false;
+  }
+}
+
 module.exports = {
   CIRCLE_CSS,
   DEFAULT_VDO_ORIGIN,
   buildPreviewUrl,
+  buildViewerFallbackUrl,
+  expectsLocalCamera,
   encodeVdoCss
 };

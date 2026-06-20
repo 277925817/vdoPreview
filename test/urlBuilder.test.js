@@ -4,7 +4,12 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-const { CIRCLE_CSS, buildPreviewUrl } = require("../src/urlBuilder");
+const {
+  CIRCLE_CSS,
+  buildPreviewUrl,
+  buildViewerFallbackUrl,
+  expectsLocalCamera
+} = require("../src/urlBuilder");
 const { migrateConfig, normalizeConfig, readConfig } = require("../src/config");
 const { describePreviewSnapshot, mapPreviewIssue } = require("../src/mediaStatus");
 const { createCircleShape } = require("../src/windowShape");
@@ -53,6 +58,36 @@ test("keeps explicit sender audio device", () => {
   );
 
   assert.equal(url.searchParams.get("audiodevice"), "studio");
+});
+
+test("converts a pasted push URL when viewing", () => {
+  const url = new URL(
+    buildPreviewUrl({
+      input: "https://vdo.ninja/?push=camera-1&webcam=1&autostart=1&audiodevice=0",
+      mode: "view"
+    })
+  );
+
+  assert.equal(url.searchParams.get("push"), null);
+  assert.equal(url.searchParams.get("webcam"), null);
+  assert.equal(url.searchParams.get("autostart"), null);
+  assert.equal(url.searchParams.get("audiodevice"), null);
+  assert.equal(url.searchParams.get("view"), "camera-1");
+  assert.equal(url.searchParams.get("cleanviewer"), "1");
+});
+
+test("builds a viewer fallback for push URLs", () => {
+  const url = new URL(
+    buildViewerFallbackUrl(
+      "https://vdo.ninja/?push=dgxsparkcam&cleanoutput=1&fullscreen=1&webcam=1&autostart=1&audiodevice=0"
+    )
+  );
+
+  assert.equal(url.searchParams.get("push"), null);
+  assert.equal(url.searchParams.get("view"), "dgxsparkcam");
+  assert.equal(url.searchParams.get("cleanoutput"), null);
+  assert.equal(url.searchParams.get("cleanviewer"), "1");
+  assert.equal(expectsLocalCamera(url.toString()), false);
 });
 
 test("preserves existing VDO.Ninja URL parameters", () => {
@@ -187,4 +222,28 @@ test("maps media permission and device failures to user-facing status", () => {
     level: "warning",
     message: "未检测到摄像头：请确认系统有可用摄像头"
   });
+});
+
+test("viewer mode ignores missing local camera devices", () => {
+  assert.deepEqual(
+    describePreviewSnapshot({ devices: { videoInputs: 0 } }, 4000, null, {
+      expectsLocalCamera: false
+    }),
+    {
+      mediaStatus: "loading",
+      level: "info",
+      message: "观看页面已打开，正在等待远端视频..."
+    }
+  );
+
+  assert.deepEqual(
+    describePreviewSnapshot({ devices: { videoInputs: 0 } }, 12000, null, {
+      expectsLocalCamera: false
+    }),
+    {
+      mediaStatus: "warning",
+      level: "warning",
+      message: "观看页面已打开，但未检测到远端视频流：请确认推流端已打开"
+    }
+  );
 });

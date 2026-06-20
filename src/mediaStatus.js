@@ -74,7 +74,9 @@ function firstMappedIssue(snapshot = {}, consoleIssue) {
   );
 }
 
-function describePreviewSnapshot(snapshot = {}, elapsedMs = 0, consoleIssue = null) {
+function describePreviewSnapshot(snapshot = {}, elapsedMs = 0, consoleIssue = null, options = {}) {
+  const expectsLocalCamera = options.expectsLocalCamera !== false;
+
   if (hasPlayableVideo(snapshot)) {
     return {
       mediaStatus: "playing",
@@ -83,7 +85,7 @@ function describePreviewSnapshot(snapshot = {}, elapsedMs = 0, consoleIssue = nu
     };
   }
 
-  if (snapshot.cameraPermission === "denied") {
+  if (expectsLocalCamera && snapshot.cameraPermission === "denied") {
     return {
       mediaStatus: "warning",
       level: "warning",
@@ -91,7 +93,7 @@ function describePreviewSnapshot(snapshot = {}, elapsedMs = 0, consoleIssue = nu
     };
   }
 
-  const issue = firstMappedIssue(snapshot, consoleIssue);
+  const issue = expectsLocalCamera ? firstMappedIssue(snapshot, consoleIssue) : null;
   if (issue) {
     return {
       mediaStatus: "warning",
@@ -101,7 +103,12 @@ function describePreviewSnapshot(snapshot = {}, elapsedMs = 0, consoleIssue = nu
   }
 
   const videoInputs = Number(snapshot.devices && snapshot.devices.videoInputs);
-  if (elapsedMs >= DEVICE_CHECK_DELAY_MS && Number.isFinite(videoInputs) && videoInputs === 0) {
+  if (
+    expectsLocalCamera &&
+    elapsedMs >= DEVICE_CHECK_DELAY_MS &&
+    Number.isFinite(videoInputs) &&
+    videoInputs === 0
+  ) {
     return {
       mediaStatus: "warning",
       level: "warning",
@@ -113,14 +120,16 @@ function describePreviewSnapshot(snapshot = {}, elapsedMs = 0, consoleIssue = nu
     return {
       mediaStatus: "warning",
       level: "warning",
-      message: "页面已打开，但未检测到视频流：请检查摄像头权限或是否被占用"
+      message: expectsLocalCamera
+        ? "页面已打开，但未检测到视频流：请检查摄像头权限或是否被占用"
+        : "观看页面已打开，但未检测到远端视频流：请确认推流端已打开"
     };
   }
 
   return {
     mediaStatus: "loading",
     level: "info",
-    message: "预览页面已打开，正在等待视频..."
+    message: expectsLocalCamera ? "预览页面已打开，正在等待视频..." : "观看页面已打开，正在等待远端视频..."
   };
 }
 

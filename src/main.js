@@ -1,7 +1,11 @@
 const { app, BrowserWindow, Menu, ipcMain, session } = require("electron");
 const path = require("node:path");
 
-const { buildPreviewUrl } = require("./urlBuilder");
+const {
+  buildPreviewUrl,
+  buildViewerFallbackUrl,
+  expectsLocalCamera
+} = require("./urlBuilder");
 const { normalizeConfig, readConfig, writeConfig } = require("./config");
 const { describePreviewSnapshot, mapPreviewIssue } = require("./mediaStatus");
 const { applyCircleShape } = require("./windowShape");
@@ -215,6 +219,22 @@ async function inspectPreviewMedia(window) {
   }
 }
 
+function getLoadedPreviewMessage(url) {
+  return expectsLocalCamera(url) ? "预览页面已打开，正在等待视频..." : "观看页面已打开，正在等待远端视频...";
+}
+
+function shouldFallbackToViewer(snapshot, state, url) {
+  const videoInputs = Number(snapshot.devices && snapshot.devices.videoInputs);
+  return (
+    expectsLocalCamera(url) &&
+    state.mediaStatus === "warning" &&
+    state.message === "未检测到摄像头：请确认系统有可用摄像头" &&
+    Number.isFinite(videoInputs) &&
+    videoInputs === 0 &&
+    Boolean(buildViewerFallbackUrl(url))
+  );
+}
+
 function startPreviewProbe(window, url) {
   stopPreviewProbe();
 
@@ -227,7 +247,18 @@ function startPreviewProbe(window, url) {
     }
 
     const snapshot = await inspectPreviewMedia(window);
-    const state = describePreviewSnapshot(snapshot, Date.now() - startedAt, lastPreviewIssue);
+    const state = describePreviewSnapshot(snapshot, Date.now() - startedAt, lastPreviewIssue, {
+      expectsLocalCamera: expectsLocalCamera(url)
+    });
+
+    if (shouldFallbackToViewer(snapshot, state, url)) {
+      const fallbackUrl = buildViewerFallbackUrl(url);
+      await loadPreviewUrl(window, fallbackUrl, {
+        loadedMessage: "本机未检测到摄像头，已改用观看模式，正在等待远端视频..."
+      });
+      return;
+    }
+
     sendPreviewState({ url, ...state });
 
     if (state.mediaStatus === "playing") {
@@ -239,14 +270,17 @@ function startPreviewProbe(window, url) {
   previewProbeTimer = setInterval(tick, 1000);
 }
 
-async function loadPreviewUrl(window, url) {
+async function loadPreviewUrl(window, url, options = {}) {
   stopPreviewProbe();
   lastPreviewIssue = null;
+  const loadingMessage = options.loadingMessage || "正在加载 VDO.Ninja...";
+  const loadedMessage = options.loadedMessage || getLoadedPreviewMessage(url);
+
   sendPreviewState({
     url,
     mediaStatus: "loading",
     level: "info",
-    message: "正在加载 VDO.Ninja..."
+    message: loadingMessage
   });
 
   await window.loadURL(url);
@@ -254,7 +288,7 @@ async function loadPreviewUrl(window, url) {
     url,
     mediaStatus: "loading",
     level: "info",
-    message: "预览页面已打开，正在等待视频..."
+    message: loadedMessage
   });
   startPreviewProbe(window, url);
 }
@@ -280,7 +314,7 @@ async function openPreview(configInput) {
     applyPreviewWindowOptions(previewWindow, config);
     await loadPreviewUrl(previewWindow, url);
     previewWindow.show();
-    return { config, url, message: "预览页面已打开，正在等待视频..." };
+    return { config, url, message: getLoadedPreviewMessage(url) };
   }
 
   previewWindow = new BrowserWindow({
@@ -317,7 +351,7 @@ async function openPreview(configInput) {
   });
 
   await loadPreviewUrl(previewWindow, url);
-  return { config, url, message: "预览页面已打开，正在等待视频..." };
+  return { config, url, message: getLoadedPreviewMessage(url) };
 }
 
 function registerIpcHandlers() {
@@ -430,6 +464,8 @@ async function runSmokeClickOpen() {
   await waitForPreviewWindow();
   const status = await waitForControlStatus(window, [
     "预览页面已打开，正在等待视频...",
+    "观看页面已打开，正在等待远端视频...",
+    "本机未检测到摄像头，已改用观看模式，正在等待远端视频...",
     "已检测到视频流",
     "打开失败"
   ]);
