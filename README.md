@@ -5,7 +5,8 @@
 ## 功能
 
 - 透明无边框圆形预览窗口
-- 默认启动本机摄像头：`push=preview&webcam&autostart`
+- 默认启动本机摄像头：`push=preview&webcam&autostart&audiodevice=0`
+- 打开后检测真实视频帧，摄像头权限/设备占用会在控制窗口提示
 - 支持输入 VDO.Ninja stream ID 或完整链接
 - 支持观看远端流、置顶、点击穿透和尺寸调整
 - Linux 桌面快捷方式安装脚本

@@ -114,6 +114,14 @@ function hasSenderMediaIntent(url) {
   );
 }
 
+function hasSenderAudioDevice(url) {
+  return (
+    url.searchParams.has("audiodevice") ||
+    url.searchParams.has("adevice") ||
+    url.searchParams.has("ad")
+  );
+}
+
 function addFlag(url, name) {
   if (!url.searchParams.has(name)) {
     url.searchParams.set(name, "1");
@@ -131,6 +139,9 @@ function addDefaultPreviewParams(url, options = {}) {
     }
     if (options.autostart) {
       addFlag(url, "autostart");
+    }
+    if (!hasSenderAudioDevice(url)) {
+      url.searchParams.set("audiodevice", "0");
     }
   } else {
     addFlag(url, "cleanviewer");

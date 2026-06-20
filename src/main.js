@@ -3,12 +3,16 @@ const path = require("node:path");
 
 const { buildPreviewUrl } = require("./urlBuilder");
 const { normalizeConfig, readConfig, writeConfig } = require("./config");
+const { describePreviewSnapshot, mapPreviewIssue } = require("./mediaStatus");
 const { applyCircleShape } = require("./windowShape");
 
 app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
 
 let controlWindow = null;
 let previewWindow = null;
+let previewProbeTimer = null;
+let previewProbeRunId = 0;
+let lastPreviewIssue = null;
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 
 if (!hasSingleInstanceLock) {
@@ -37,6 +41,11 @@ function sendPreviewState(extra = {}) {
 }
 
 function configureVdoSession() {
+  session.defaultSession.setPermissionCheckHandler((webContents, permission, requestingOrigin) => {
+    const mediaPermissions = new Set(["media", "camera", "microphone", "display-capture"]);
+    return mediaPermissions.has(permission) && isVdoNinjaUrl(requestingOrigin || webContents.getURL());
+  });
+
   session.defaultSession.setPermissionRequestHandler((webContents, permission, callback, details) => {
     const requestingUrl = details.requestingUrl || webContents.getURL();
     const mediaPermissions = new Set(["media", "camera", "microphone", "display-capture"]);
@@ -70,6 +79,30 @@ function createControlWindow() {
 function configurePreviewWindow(window) {
   window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
 
+  window.webContents.on("console-message", (details) => {
+    const consoleMessage = details && typeof details === "object" ? details.message : "";
+    const issue = mapPreviewIssue(consoleMessage);
+    if (!issue) {
+      return;
+    }
+
+    lastPreviewIssue = issue;
+    sendPreviewState({
+      mediaStatus: "warning",
+      level: "warning",
+      message: issue
+    });
+  });
+
+  window.webContents.on("did-fail-load", (event, errorCode, errorDescription, validatedUrl) => {
+    sendPreviewState({
+      url: validatedUrl,
+      mediaStatus: "warning",
+      level: "warning",
+      message: `VDO.Ninja 页面加载失败：${errorDescription || errorCode}`
+    });
+  });
+
   window.webContents.on("will-navigate", (event, nextUrl) => {
     if (!isVdoNinjaUrl(nextUrl)) {
       event.preventDefault();
@@ -94,6 +127,138 @@ function configurePreviewWindow(window) {
   });
 }
 
+function stopPreviewProbe() {
+  previewProbeRunId += 1;
+
+  if (previewProbeTimer) {
+    clearInterval(previewProbeTimer);
+    previewProbeTimer = null;
+  }
+}
+
+function getPreviewMediaScript() {
+  return `
+    (async () => {
+      const normalize = (value) => String(value || "").replace(/\\s+/g, " ").trim();
+      const videos = Array.from(document.querySelectorAll("video")).map((video) => ({
+        width: video.videoWidth || 0,
+        height: video.videoHeight || 0,
+        readyState: video.readyState,
+        paused: video.paused,
+        ended: video.ended,
+        currentTime: video.currentTime || 0,
+        srcObjectActive: Boolean(video.srcObject && video.srcObject.active),
+        tracks: video.srcObject && typeof video.srcObject.getTracks === "function"
+          ? video.srcObject.getTracks().map((track) => ({
+              kind: track.kind,
+              enabled: track.enabled,
+              muted: Boolean(track.muted),
+              readyState: track.readyState
+            }))
+          : []
+      }));
+
+      const queryPermission = async (name) => {
+        try {
+          if (!navigator.permissions || !navigator.permissions.query) {
+            return "unknown";
+          }
+          const permission = await navigator.permissions.query({ name });
+          return permission.state || "unknown";
+        } catch (error) {
+          return "unknown";
+        }
+      };
+
+      const readDevices = async () => {
+        try {
+          if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+            return { videoInputs: null, audioInputs: null, error: "mediaDevices unavailable" };
+          }
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          return {
+            videoInputs: devices.filter((device) => device.kind === "videoinput").length,
+            audioInputs: devices.filter((device) => device.kind === "audioinput").length
+          };
+        } catch (error) {
+          return {
+            videoInputs: null,
+            audioInputs: null,
+            error: error && (error.name || error.message) ? error.name || error.message : String(error)
+          };
+        }
+      };
+
+      const devices = await readDevices();
+      return {
+        bodyText: normalize(document.body ? document.body.innerText : "").slice(0, 600),
+        cameraPermission: await queryPermission("camera"),
+        devices,
+        deviceError: devices.error || "",
+        title: document.title,
+        url: location.href,
+        videos
+      };
+    })()
+  `;
+}
+
+async function inspectPreviewMedia(window) {
+  if (!window || window.isDestroyed()) {
+    return { error: "preview window closed" };
+  }
+
+  try {
+    return await window.webContents.executeJavaScript(getPreviewMediaScript(), true);
+  } catch (error) {
+    return { error: error.message || String(error) };
+  }
+}
+
+function startPreviewProbe(window, url) {
+  stopPreviewProbe();
+
+  const runId = previewProbeRunId;
+  const startedAt = Date.now();
+
+  const tick = async () => {
+    if (runId !== previewProbeRunId || !window || window.isDestroyed()) {
+      return;
+    }
+
+    const snapshot = await inspectPreviewMedia(window);
+    const state = describePreviewSnapshot(snapshot, Date.now() - startedAt, lastPreviewIssue);
+    sendPreviewState({ url, ...state });
+
+    if (state.mediaStatus === "playing") {
+      stopPreviewProbe();
+    }
+  };
+
+  tick();
+  previewProbeTimer = setInterval(tick, 1000);
+}
+
+async function loadPreviewUrl(window, url) {
+  stopPreviewProbe();
+  lastPreviewIssue = null;
+  sendPreviewState({
+    url,
+    mediaStatus: "loading",
+    level: "info",
+    message: "正在加载 VDO.Ninja..."
+  });
+
+  await window.loadURL(url);
+  sendPreviewState({
+    url,
+    mediaStatus: "loading",
+    level: "info",
+    message: "预览页面已打开，正在等待视频..."
+  });
+  startPreviewProbe(window, url);
+}
+
 function applyPreviewWindowOptions(window, config) {
   window.setSize(config.size, config.size);
   window.setAspectRatio(1);
@@ -113,10 +278,9 @@ async function openPreview(configInput) {
 
   if (previewWindow && !previewWindow.isDestroyed()) {
     applyPreviewWindowOptions(previewWindow, config);
-    await previewWindow.loadURL(url);
+    await loadPreviewUrl(previewWindow, url);
     previewWindow.show();
-    sendPreviewState({ url });
-    return { config, url };
+    return { config, url, message: "预览页面已打开，正在等待视频..." };
   }
 
   previewWindow = new BrowserWindow({
@@ -147,13 +311,13 @@ async function openPreview(configInput) {
   });
 
   previewWindow.on("closed", () => {
+    stopPreviewProbe();
     previewWindow = null;
     sendPreviewState();
   });
 
-  await previewWindow.loadURL(url);
-  sendPreviewState({ url });
-  return { config, url };
+  await loadPreviewUrl(previewWindow, url);
+  return { config, url, message: "预览页面已打开，正在等待视频..." };
 }
 
 function registerIpcHandlers() {
@@ -168,6 +332,18 @@ function registerIpcHandlers() {
   });
   ipcMain.handle("preview:reload", () => {
     if (previewWindow && !previewWindow.isDestroyed()) {
+      stopPreviewProbe();
+      sendPreviewState({
+        url: previewWindow.webContents.getURL(),
+        mediaStatus: "loading",
+        level: "info",
+        message: "正在刷新预览..."
+      });
+      previewWindow.webContents.once("did-finish-load", () => {
+        if (previewWindow && !previewWindow.isDestroyed()) {
+          startPreviewProbe(previewWindow, previewWindow.webContents.getURL());
+        }
+      });
       previewWindow.reload();
       return { open: true };
     }
@@ -252,7 +428,11 @@ async function runSmokeClickOpen() {
     document.querySelector("#open-preview").click();
   `);
   await waitForPreviewWindow();
-  const status = await waitForControlStatus(window, ["预览已打开", "打开失败"]);
+  const status = await waitForControlStatus(window, [
+    "预览页面已打开，正在等待视频...",
+    "已检测到视频流",
+    "打开失败"
+  ]);
   console.log(`smoke-click-open ok: ${status}`);
   setTimeout(() => app.quit(), 1200);
 }

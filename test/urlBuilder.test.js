@@ -6,6 +6,7 @@ const path = require("node:path");
 
 const { CIRCLE_CSS, buildPreviewUrl } = require("../src/urlBuilder");
 const { migrateConfig, normalizeConfig, readConfig } = require("../src/config");
+const { describePreviewSnapshot, mapPreviewIssue } = require("../src/mediaStatus");
 const { createCircleShape } = require("../src/windowShape");
 
 test("builds a clean circular viewer URL from a stream id", () => {
@@ -28,6 +29,7 @@ test("builds a publishing preview URL with autostart", () => {
   assert.equal(url.searchParams.get("fullscreen"), "1");
   assert.equal(url.searchParams.get("webcam"), "1");
   assert.equal(url.searchParams.get("autostart"), "1");
+  assert.equal(url.searchParams.get("audiodevice"), "0");
 });
 
 test("keeps explicit sender media intent", () => {
@@ -40,6 +42,17 @@ test("keeps explicit sender media intent", () => {
 
   assert.equal(url.searchParams.get("screenshare"), "1");
   assert.equal(url.searchParams.get("webcam"), null);
+});
+
+test("keeps explicit sender audio device", () => {
+  const url = new URL(
+    buildPreviewUrl({
+      input: "https://vdo.ninja/?push=camera-1&audiodevice=studio",
+      mode: "push"
+    })
+  );
+
+  assert.equal(url.searchParams.get("audiodevice"), "studio");
 });
 
 test("preserves existing VDO.Ninja URL parameters", () => {
@@ -133,4 +146,45 @@ test("creates a circle-like native window shape", () => {
   assert.ok(rects[0].x > 0);
   assert.ok(rects.some((rect) => rect.x === 0));
   assert.equal(rects.at(-1).y, 8);
+});
+
+test("detects a playable preview video snapshot", () => {
+  assert.deepEqual(
+    describePreviewSnapshot({
+      videos: [
+        {
+          width: 1280,
+          height: 720,
+          readyState: 4,
+          ended: false,
+          srcObjectActive: true,
+          tracks: [{ kind: "video", readyState: "live" }]
+        }
+      ]
+    }),
+    {
+      mediaStatus: "playing",
+      level: "ok",
+      message: "已检测到视频流"
+    }
+  );
+});
+
+test("maps media permission and device failures to user-facing status", () => {
+  assert.equal(
+    mapPreviewIssue("NotAllowedError: Permission denied"),
+    "摄像头权限被拒绝：请允许 VDO.Ninja 使用摄像头"
+  );
+
+  assert.deepEqual(describePreviewSnapshot({ cameraPermission: "denied" }), {
+    mediaStatus: "warning",
+    level: "warning",
+    message: "摄像头权限被拒绝：请允许 VDO.Ninja 使用摄像头"
+  });
+
+  assert.deepEqual(describePreviewSnapshot({ devices: { videoInputs: 0 } }, 4000), {
+    mediaStatus: "warning",
+    level: "warning",
+    message: "未检测到摄像头：请确认系统有可用摄像头"
+  });
 });

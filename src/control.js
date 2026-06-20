@@ -54,6 +54,10 @@ function setStatus(message, isError = false) {
   statusText.classList.toggle("is-error", isError);
 }
 
+function isWarningState(state) {
+  return state.level === "warning" || state.level === "error";
+}
+
 function setOpenState(isOpen) {
   statusDot.classList.toggle("is-open", Boolean(isOpen));
 }
@@ -81,7 +85,7 @@ form.addEventListener("submit", async (event) => {
     const result = await window.previewTool.openPreview(collectConfig());
     applyConfig(result.config);
     setOpenState(true);
-    setStatus("预览已打开");
+    setStatus(result.message || "预览页面已打开，正在等待视频...");
   } catch (error) {
     setStatus(error.message || "打开失败", true);
   } finally {
@@ -107,6 +111,9 @@ form.addEventListener("change", () => {
 
 window.previewTool.onPreviewState((state) => {
   setOpenState(state.open);
+  if (state.message) {
+    setStatus(state.message, isWarningState(state));
+  }
 });
 
 window.previewTool
